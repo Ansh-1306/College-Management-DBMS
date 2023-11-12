@@ -1,0 +1,200 @@
+CREATE TABLE marks (
+    s_id INT PRIMARY KEY,
+    s_name VARCHAR(15),
+    s_branch VARCHAR(10),
+    total INT,
+    maths_marks NUMERIC(5,2),
+    dbms_marks NUMERIC(5,2),
+    java_marks NUMERIC(5,2),
+    marks_without_bonus NUMERIC(5,2),
+    marks_with_bonus NUMERIC(5,2),
+    percentage NUMERIC(5,2)
+);
+
+CREATE TABLE attendance (
+    s_id INT PRIMARY KEY,
+    s_name VARCHAR(15),
+    maths_attended_lec INT,
+    maths_total_lec INT,
+    java_attended_lec INT,
+    java_total_lec INT,
+    dbms_attended_lec INT,
+    dbms_total_lec INT,
+    attended_lec INT,
+    total_lec INT,
+    attendance_percentage NUMERIC(5,2),
+    bonus INT
+);
+
+
+
+INSERT INTO marks(s_id,s_name,s_branch,total,maths_marks,dbms_marks,java_marks) 
+VALUES
+    (1,'Mahi','IT',100,85,70,81),
+    (2,'Ansh','CE',100,88,90,92),
+    (3,'Ajay','CSE',100,40,65,78),
+    (4,'Raj','CST',100,90,83,77),
+    (5,'Maitri','AIML',100,85,80,94),
+    (6,'Jay','CE',100,88,72,53),
+    (7,'Het','IT',100,81,62,78),
+    (8,'Arya','CSE',100,90,82,98),
+    (9,'Ravi','CSE',100,79,90,57),
+    (10,'Khushi','CST',100,76,63,67),
+    (11,'Krishna','AIML',100,58,45,30),
+    (12,'Neha','CE',100,89,75,68),
+    (13,'Henvi','IT',100,41,56,27),
+    (14,'Vedant','CSE',100,63,30,35),
+    (15,'Bhavya','CST',100,59,70,44),
+    (16,'Janvi','CE',100,64,80,47),
+    (17,'Tithi','IT',100,49,72,60),
+    (18,'Aryan','CSE',100,35,48,57),
+    (19,'Arin','CST',100,42,50,68),
+    (20,'Naiya','AIML',100,60,73,99);
+
+INSERT INTO attendance(s_id,s_name,maths_attended_lec,maths_total_lec,java_attended_lec,java_total_lec,dbms_attended_lec,dbms_total_lec) 
+VALUES
+    (1,'Mahi',45,50,40,50,41,50),
+    (2,'Ansh',49,50,45,50,47,50),
+    (3,'Ajay',40,50,35,50,38,50),
+    (4,'Raj',30,50,43,50,37,50),
+    (5,'Maitri',45,50,43,50,40,50),
+    (6,'Jay',38,50,32,50,35,50),
+    (7,'Het',41,50,32,50,38,50),
+    (8,'Arya',40,50,42,50,45,50),
+    (9,'Ravi',30,50,29,50,34,50),
+    (10,'Khushi',38,50,43,50,32,50),
+    (11,'Krishna',38,50,22,50,31,50),
+    (12,'Neha',27,50,45,50,32,50),
+    (13,'Henvi',41,50,31,50,27,50),
+    (14,'Vedant',23,50,30,50,35,50),
+    (15,'Bhavya',36,50,20,50,24,50),
+    (16,'Janvi',42,50,38,50,40,50),
+    (17,'Tithi',35,50,32,50,40,50),
+    (18,'Aryan',25,50,38,50,27,50),
+    (19,'Arin',35,50,43,50,30,50),
+    (20,'Naiya',40,50,33,50,29,50);
+
+
+
+CREATE OR REPLACE PROCEDURE insert_in_marks(s_id INT, s_name VARCHAR(15), s_branch VARCHAR(10) ,total INT, maths_marks NUMERIC, dbms_marks NUMERIC, java_marks NUMERIC) AS $$
+    BEGIN
+        INSERT INTO marks(s_id, s_name, s_branch, total, maths_marks, dbms_marks, java_marks) 
+        VALUES (s_id, s_name, s_branch ,total ,maths_marks ,dbms_marks , java_marks);
+    END;
+$$
+LANGUAGE plpgsql;
+
+CREATE OR REPLACE PROCEDURE insert_in_attendance(s_id INT, s_name VARCHAR(15),maths_attended_lec INT, maths_total_lec INT, java_attended_lec INT, java_total_lec INT, dbms_attended_lec INT, dbms_total_lec INT) AS $$
+    BEGIN
+        INSERT INTO attendance(s_id, s_name, maths_attended_lec, maths_total_lec, java_attended_lec, java_total_lec, dbms_attended_lec,  dbms_total_lec) 
+        VALUES (s_id, s_name, maths_attended_lec, maths_total_lec, java_attended_lec, java_total_lec, dbms_attended_lec, dbms_total_lec);
+    END;
+$$
+LANGUAGE plpgsql;
+
+
+
+CREATE OR REPLACE FUNCTION calculate_attendance() RETURNS TRIGGER AS $$
+    DECLARE
+        total_lec_attended INT = 0;
+        total NUMERIC(5,2) = 0;
+        att_per NUMERIC(5,2) = 0;
+    BEGIN
+        total_lec_attended = NEW.maths_attended_lec + NEW.java_attended_lec + NEW.dbms_attended_lec;
+        UPDATE attendance SET attended_lec = total_lec_attended WHERE s_id = NEW.s_id;
+
+        total = NEW.maths_total_lec + NEW.java_total_lec + NEW.dbms_total_lec; 
+        UPDATE attendance SET total_lec=total WHERE s_id = NEW.s_id;
+
+        att_per = (total_lec_attended / total) * 100 ;
+        UPDATE attendance SET attendance_percentage = att_per WHERE s_id = NEW.s_id;
+
+        CALL calculate_bonus(NEW.s_id,att_per);
+        
+        RETURN NEW;
+    END;
+$$
+LANGUAGE plpgsql;
+CREATE OR REPLACE TRIGGER insert_attendance AFTER INSERT ON attendance FOR EACH ROW EXECUTE FUNCTION calculate_attendance();
+
+
+CREATE OR REPLACE PROCEDURE calculate_bonus(id IN INT, att_per IN NUMERIC) AS $$
+    BEGIN
+        IF att_per >= 90 then
+            UPDATE attendance SET bonus = 5 WHERE s_id = id;
+        ELSIF att_per >= 80 then
+            UPDATE attendance SET bonus = 4 WHERE s_id = id;
+        ELSIF att_per >= 70 then
+            UPDATE attendance SET bonus = 3 WHERE s_id = id;
+        ELSIF att_per >= 60 then
+            UPDATE attendance SET bonus = 2 WHERE s_id = id;
+        ELSIF att_per >= 50 then
+            UPDATE attendance SET bonus = 1 WHERE s_id = id;
+        ELSE
+            UPDATE attendance SET bonus = 0 WHERE s_id = id;
+        END IF;
+    END;
+$$
+LANGUAGE plpgsql;
+
+
+CREATE OR REPLACE FUNCTION calculate_marks() RETURNS TRIGGER AS $$
+    DECLARE
+        total_marks NUMERIC(5,2)=0;
+        percentage NUMERIC(5,2) =0;
+    BEGIN
+        total_marks = NEW.maths_marks + NEW.java_marks + NEW.dbms_marks;
+        UPDATE marks SET marks_without_bonus = total_marks WHERE s_id = NEW.s_id;
+        UPDATE marks SET percentage = total_marks / 3 WHERE s_id = NEW.s_id; 
+        RETURN NEW;
+    END;
+$$
+LANGUAGE plpgsql;
+CREATE OR REPLACE TRIGGER insert_marks AFTER INSERT ON marks FOR EACH ROW EXECUTE FUNCTION calculate_marks();
+
+
+CREATE OR REPLACE PROCEDURE add_bonus() AS $$
+    DECLARE
+        total_without_bonus marks.marks_without_bonus%TYPE;
+        bonus_marks attendance.bonus%TYPE;
+        id marks.s_id%TYPE;
+        c1 CURSOR FOR SELECT marks.s_id, marks_without_bonus, bonus FROM marks, attendance WHERE marks.s_id = attendance.s_id;
+    BEGIN
+        OPEN c1;
+        LOOP
+            FETCH c1 INTO id,total_without_bonus,bonus_marks;
+            EXIT WHEN NOT FOUND;
+            IF total_without_bonus + bonus_marks > 300 THEN
+                UPDATE marks SET marks_with_bonus = 300 WHERE CURRENT OF s_id=id;
+            ELSE
+                UPDATE marks SET marks_with_bonus = total_without_bonus + bonus_marks WHERE s_id = id;
+            END IF;
+            UPDATE marks SET percentage = marks_with_bonus / 3 WHERE s_id = id;
+        END LOOP;
+        CLOSE c1;
+    END;
+$$
+LANGUAGE plpgsql;
+
+
+
+CREATE OR REPLACE PROCEDURE display_branch_topper(branch VARCHAR) AS $$ 
+    DECLARE
+        var marks%ROWTYPE;
+    BEGIN
+        SELECT * FROM marks WHERE s_branch = branch ORDER BY percentage DESC INTO var;
+        RAISE NOTICE 'Name = % , Percentage = %',var.s_name,var.percentage;
+    END;
+$$
+LANGUAGE plpgsql;  
+
+CREATE OR REPLACE FUNCTION getUserDetailsByid(id INT) RETURNS TABLE(s_id INT, s_name VARCHAR(15), s_branch VARCHAR(10),
+   total INT,maths_marks NUMERIC(5,2),dbms_marks NUMERIC(5,2),java_marks NUMERIC(5,2),marks_without_bonus NUMERIC(5,2),
+   marks_with_bonus NUMERIC(5,2),percentage NUMERIC(5,2))AS $$
+BEGIN
+    RETURN QUERY
+    SELECT * FROM marks WHERE s_id = id;
+END
+$$
+LANGUAGE plpgsql;
+

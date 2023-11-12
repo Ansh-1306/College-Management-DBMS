@@ -1,0 +1,81 @@
+--1. Query to find professor at a certain time and the division he/she is teaching at particular day and time.
+    select professor_id, class_id, division from timetable where day_of_week = 'TUESDAY' and Start_time < '12:00:00' and end_time > '12:00:00' order by professor_id;
+
+--2. Query to find which classes are empty at particular day and time.
+    select Class_number from classes where class_id not in(select class_id from timetable where day_of_week = 'MONDAY' and Start_time < '12:00:00' and end_time > '12:00:00' );
+
+--3. Query to find which classes are assigned to particular department.
+    select class_number from classes where class_id in(select class_id from timetable where professor_id in (select professor_id from professors where course_id in (select course_id from courses where department_id in (select department_id from departments where department_name = 'Civil'))))
+
+--4. Query to find total marks of all students in all subjects. 
+    select enrollment_no,first_name,last_name,sum(score) from students join results on students.Student_id = results.student_id group by results.Student_id,enrollment_no,first_name,last_name;
+
+--5. Query to find average marks course/subject wise.
+    select results.course_id,course_name,cast(avg(score) as decimal(5,2)) from courses join results on courses.course_id = results.course_id group by results.course_id,course_name;
+
+--6. Query to display details of professors in particular department.
+    select * from professors where course_id in (select course_id from courses where department_id in (select department_id from departments where department_name ='CS'));
+
+--7. Query to display details of students in particular department.
+    select * from students where department_id in (select department_id from departments where department_name ='Mechanical');
+
+--8. Query to display average marks of all department.
+    select department_name,cast(avg(score) as decimal(5,2)) from departments join courses on departments.department_id = courses.department_id join results on results.course_id = courses.course_id group by department_name;
+
+--9. Query to find count of male and female students.
+    select gender,count(gender) from students group by gender;
+
+--10. Query to print timetable of a particular department.
+    select day_of_week,start_time,end_time,class_number,course_name from timetable,classes,professors,courses where timetable.class_id = classes.class_id and timetable.professor_id = professors.professor_id and professors.course_id=courses.course_id and  Division = 'D2' order by day_of_week,start_time ;
+
+
+
+CREATE OR REPLACE PROCEDURE display_division_wise(div VARCHAR) AS $$
+    DECLARE 
+        var students%ROWTYPE;
+        c1 CURSOR FOR SELECT * FROM students WHERE Division = div;
+    BEGIN
+        OPEN c1;
+        LOOP
+            FETCH c1 INTO var;
+            EXIT WHEN NOT FOUND;
+            RAISE NOTICE 'Enrollment_No = % , Name = % % , Gender = % , DOB = % , Email = %',var.Enrollment_No,var.First_Name,var.Last_Name,var.Gender, var.Date_Of_Birth, var.Email ;
+        END LOOP;
+        CLOSE c1;
+    END;
+$$
+LANGUAGE plpgsql;
+        
+CALL display_division_wise('D4');
+
+CREATE OR REPLACE PROCEDURE calculate_spi(enroll_no INT) AS $$ 
+    DECLARE 
+        sub NUMERIC = 0;
+        cred INT = 0;
+        total NUMERIC(5,2) = 0;
+        c_id INT;
+        var Students%ROWTYPE;
+        c1 CURSOR FOR SELECT Score,Course_ID FROM Results WHERE Student_id IN (SELECT Student_id FROM Students WHERE Enrollment_No = enroll_no); 
+    BEGIN
+        SELECT * FROM Students WHERE Enrollment_No = enroll_no INTO var;
+        OPEN c1;
+        LOOP 
+            FETCH c1 INTO sub,c_id;
+            EXIT WHEN NOT FOUND;
+            SELECT Credits FROM Courses WHERE course_id = c_id INTO cred;
+            total = total + (sub * cred);
+        END LOOP;
+        CLOSE c1;
+        total =  total / 15;
+        RAISE NOTICE 'Enrollment_No : %',var.Enrollment_No;
+        RAISE NOTICE 'Name          : % %',var.First_Name,var.Last_Name;
+        RAISE NOTICE 'SPI           : %',total;
+    END;
+$$
+LANGUAGE plpgsql;
+
+CALL calculate_spi(1002);
+        
+
+    
+        
